@@ -48,14 +48,14 @@ max_iters = 5;
 
 %% Riccati-Based Policy Iteration
 disp('Starting Riccati Iterations...');
-P = Q; % Initial cost-to-go matrix
+P = eye(n); % Initial guess for P
 performance_riccati = zeros(max_iters, 1);
 feedback_gains_riccati = cell(max_iters, 1);
 
 for k = 1:max_iters
-    % Update gains based on current P
-    K1 = -inv(R1) * B1' * P;
-    K2 = -inv(R2) * B2' * P;
+    % Compute feedback gains using Riccati equation
+    K1 = -inv(R1 + B1' * P * B1) * (B1' * P * A);
+    K2 = -inv(R2 + B2' * P * B2) * (B2' * P * A);
 
     % Store feedback gains
     feedback_gains_riccati{k} = {K1, K2};
@@ -63,8 +63,8 @@ for k = 1:max_iters
     % Compute closed-loop dynamics
     A_cl = A + B1 * K1 + B2 * K2;
 
-    % Solve Riccati equation manually
-    P_next = Q + K1' * R1 * K1 + K2' * R2 * K2 + A_cl' * P * A_cl;
+    % Solve Riccati equation using a numerical solver
+    P_next = Q + A_cl' * P * A_cl;
 
     % Compute performance metric
     performance_riccati(k) = trace(P_next);
@@ -79,14 +79,14 @@ end
 
 %% Lyapunov-Based Policy Iteration
 disp('Starting Lyapunov Iterations...');
-P = Q; % Initial cost-to-go matrix
+P = eye(n); % Initial guess for P
 performance_lyapunov = zeros(max_iters, 1);
 feedback_gains_lyapunov = cell(max_iters, 1);
 
 for k = 1:max_iters
-    % Update gains based on current P
-    K1 = -inv(R1) * B1' * P;
-    K2 = -inv(R2) * B2' * P;
+    % Compute feedback gains using Lyapunov equation
+    K1 = -inv(R1 + B1' * P * B1) * (B1' * P * A);
+    K2 = -inv(R2 + B2' * P * B2) * (B2' * P * A);
 
     % Store feedback gains
     feedback_gains_lyapunov{k} = {K1, K2};
@@ -94,7 +94,7 @@ for k = 1:max_iters
     % Compute closed-loop dynamics
     A_cl = A + B1 * K1 + B2 * K2;
 
-    % Solve Lyapunov equation manually
+    % Solve Lyapunov equation using a numerical solver
     P_next = Q + A_cl' * P * A_cl;
 
     % Compute performance metric
