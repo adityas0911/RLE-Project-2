@@ -1,79 +1,194 @@
-%% Multi-Agent Drone Stabilization: Zero-Sum and Nash Games
+%% Zero-Sum Differential Games: Riccati and Lyapunov Policy Iterations
 
-% Name: Aditya Sharma.
+% Name: Aditya Sharma
 % NetID: as4108
 % RUID: 219008361
 % Course: 16:332:515:01 Reinforcement Learning for Engineers
-% Professor: z.gajic@rutgers.edu
+% Professor: Z. Gajic
 % Due Date: Dec. 23, 2024 @ 11:59 PM EST
 
-%% SECTION 0: Matlab Setup
- 
-clear; clc; close all; % Clear workspace, command window, and close figures.
+%%
+clc;
+clear;
+close all;
 
-addpath('functions'); % Add the functions directory to the MATLAB path.
+%% Define the Drone Dynamics
+% State-space model: x_dot = Ax + Bu,   z = Cx
+% A represents system dynamics, B control input, C performance output
+A = [0 1 0 0;
+     0 -0.5 2 0;
+     0 0 0 1;
+     0 0 -3 -0.7];
+B1 = [0; 1; 0; 0];  % Control input for Player 1
+B2 = [0; 0; 0; 1];  % Control input for Player 2
+C1 = [1 0 0 0];      % Performance output for Player 1
+C2 = [0 0 1 0];      % Performance output for Player 2
 
-%% SECTION 1: System Setup and Parameters
+Q1 = C1' * C1;  % Weighting matrix for Player 1
+Q2 = C2' * C2;  % Weighting matrix for Player 2
+R1 = 1;         % Control cost for Player 1
+R2 = 1;         % Control cost for Player 2
 
-% Define system matrices (state dynamics):
+% Zero-sum requirement: Players have opposing goals
+Q = Q1 - Q2;   % Combined state weighting matrix
+R = R1 - R2;   % Combined control weighting matrix
 
-A = [0, 0, 1, 0; % Position 1 depends on Velocity 1.
-     0, 0, 0, 1; % Position 2 depends on Velocity 2.
-     -0.1, 0.05, -0.5, 0; % Velocity 1 depends on position & velocity.
-     0.05, -0.1, 0, -0.5]; % Velocity 2 depends similarly.
+%% Initialization for Policy Iterations
+n = size(A, 1);  % Number of states
+m1 = size(B1, 2); % Number of controls for Player 1
+m2 = size(B2, 2); % Number of controls for Player 2
 
-% B1 and B2 represent control influence for Drone 1 and Drone 2:
+% Initial stabilizing gains (K1, K2)
+K1 = zeros(m1, n);
+K2 = zeros(m2, n);
 
-B1 = [0;
-      0;
-      1;
-      0]; % Drone 1 directly affects its velocity.
-B2 = [0;
-      0;
-      0;
-      1]; % Drone 2 directly affects its velocity.
+% Convergence tolerance and max iterations
+epsilon = 1e-6;
+max_iters = 5;
 
-% Cost function weights:
+%% Riccati-Based Policy Iteration
+disp('Starting Riccati Iterations...');
+P = Q; % Initial cost-to-go matrix
+performance_riccati = zeros(max_iters, 1);
+feedback_gains_riccati = cell(max_iters, 1);
 
-Q = eye(4); % Shared state weighting for zero-sum game.
+for k = 1:max_iters
+    % Update gains based on current P
+    K1 = -inv(R1) * B1' * P;
+    K2 = -inv(R2) * B2' * P;
 
-% Separate state weightings for Nash game:
+    % Store feedback gains
+    feedback_gains_riccati{k} = {K1, K2};
 
-Q1 = Q;
-Q2 = Q;
+    % Compute closed-loop dynamics
+    A_cl = A + B1 * K1 + B2 * K2;
 
-% Control effort penalties for both drones:
+    % Solve Riccati equation manually
+    P_next = Q + K1' * R1 * K1 + K2' * R2 * K2 + A_cl' * P * A_cl;
 
-R1 = 1;
-R2 = 1;
+    % Compute performance metric
+    performance_riccati(k) = trace(P_next);
 
-% Simulation parameters:
+    % Check convergence
+    if norm(P_next - P, 'fro') < epsilon
+        break;
+    end
 
-num_iterations = 20; % Number of iterations for policy iteration.
-x0 = [1;
-      -1;
-      0.5;
-      -0.5]; % Initial state: positions & velocities.
-time_span = linspace(0, 20, 1000); % Simulate over 20 seconds.
+    P = P_next;
+end
 
-%% SECTION 2: Policy Iterations for Feedback Gains
+%% Lyapunov-Based Policy Iteration
+disp('Starting Lyapunov Iterations...');
+P = Q; % Initial cost-to-go matrix
+performance_lyapunov = zeros(max_iters, 1);
+feedback_gains_lyapunov = cell(max_iters, 1);
 
-% Compute feedback gains using Riccati Iterations (Nash Game):
+for k = 1:max_iters
+    % Update gains based on current P
+    K1 = -inv(R1) * B1' * P;
+    K2 = -inv(R2) * B2' * P;
 
-disp('Running Riccati Iterations for Nash Game...');
+    % Store feedback gains
+    feedback_gains_lyapunov{k} = {K1, K2};
 
-[F1, F2] = solve_riccati(A, B1, B2, Q1, Q2, R1, R2, num_iterations);
+    % Compute closed-loop dynamics
+    A_cl = A + B1 * K1 + B2 * K2;
 
-% Compute feedback gains using Lyapunov Iterations (Zero-Sum Game):
+    % Solve Lyapunov equation manually
+    P_next = Q + A_cl' * P * A_cl;
 
-disp('Running Lyapunov Iterations for Zero-Sum Game...');
+    % Compute performance metric
+    performance_lyapunov(k) = trace(P_next);
 
-F_lyapunov = solve_lyapunov(A, B1, B2, Q, R1, R2, num_iterations);
+    % Check convergence
+    if norm(P_next - P, 'fro') < epsilon
+        break;
+    end
 
-%% SECTION 3: Simulate and Visualize State Trajectories
+    P = P_next;
+end
 
-% Simulate state trajectories with Riccati and Lyapunov feedback:
+%% Simulating State Trajectories
+x0 = [1; 0; -1; 0];  % Initial state
+T = 0:0.1:10;        % Time vector
 
-disp('Simulating and Visualizing State Trajectories...');
-simulate_and_visualize(A, B1, B2, F1, F2, F_lyapunov, x0, time_span);
-disp('Simulation Complete. All Results Visualized.');
+% Riccati Trajectories
+state_traj_riccati = zeros(length(T), n, max_iters);
+for k = 1:max_iters
+    K1 = feedback_gains_riccati{k}{1};
+    K2 = feedback_gains_riccati{k}{2};
+    A_cl = A + B1 * K1 + B2 * K2;
+
+    % Simulate dynamics
+    [~, X] = ode45(@(t, x) A_cl * x, T, x0);
+    state_traj_riccati(:, :, k) = X;
+end
+
+% Lyapunov Trajectories
+state_traj_lyapunov = zeros(length(T), n, max_iters);
+for k = 1:max_iters
+    K1 = feedback_gains_lyapunov{k}{1};
+    K2 = feedback_gains_lyapunov{k}{2};
+    A_cl = A + B1 * K1 + B2 * K2;
+
+    % Simulate dynamics
+    [~, X] = ode45(@(t, x) A_cl * x, T, x0);
+    state_traj_lyapunov(:, :, k) = X;
+end
+
+%% Plotting Feedback Gains
+figure;
+for i = 1:max_iters
+    K1_riccati = feedback_gains_riccati{i}{1};
+    K2_riccati = feedback_gains_riccati{i}{2};
+    subplot(2, 1, 1);
+    plot(1:size(K1_riccati, 2), K1_riccati, '-o'); hold on;
+    title('Riccati Gains K1');
+    xlabel('State Index'); ylabel('Gain Value');
+
+    subplot(2, 1, 2);
+    plot(1:size(K2_riccati, 2), K2_riccati, '-o'); hold on;
+    title('Riccati Gains K2');
+    xlabel('State Index'); ylabel('Gain Value');
+end
+
+figure;
+for i = 1:max_iters
+    K1_lyapunov = feedback_gains_lyapunov{i}{1};
+    K2_lyapunov = feedback_gains_lyapunov{i}{2};
+    subplot(2, 1, 1);
+    plot(1:size(K1_lyapunov, 2), K1_lyapunov, '-o'); hold on;
+    title('Lyapunov Gains K1');
+    xlabel('State Index'); ylabel('Gain Value');
+
+    subplot(2, 1, 2);
+    plot(1:size(K2_lyapunov, 2), K2_lyapunov, '-o'); hold on;
+    title('Lyapunov Gains K2');
+    xlabel('State Index'); ylabel('Gain Value');
+end
+
+%% Plotting State Trajectories
+figure;
+for k = 1:max_iters
+    subplot(2, 3, k);
+    plot(T, state_traj_riccati(:, :, k));
+    title(['Riccati Trajectories (Iter ' num2str(k) ')']);
+    xlabel('Time'); ylabel('State');
+end
+
+figure;
+for k = 1:max_iters
+    subplot(2, 3, k);
+    plot(T, state_traj_lyapunov(:, :, k));
+    title(['Lyapunov Trajectories (Iter ' num2str(k) ')']);
+    xlabel('Time'); ylabel('State');
+end
+
+%% Performance Tables
+table_riccati = table((1:max_iters)', performance_riccati, 'VariableNames', {'Iteration', 'Performance_Riccati'});
+table_lyapunov = table((1:max_iters)', performance_lyapunov, 'VariableNames', {'Iteration', 'Performance_Lyapunov'});
+
+disp('Performance Table (Riccati):');
+disp(table_riccati);
+disp('Performance Table (Lyapunov):');
+disp(table_lyapunov);
