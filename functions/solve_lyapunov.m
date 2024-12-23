@@ -1,19 +1,24 @@
-function F = solve_lyapunov(A, B1, ~, Q1, Q2, R1, R2, num_iterations)
-    % Initialize feedback gain:
-    gamma = 1;
-    F = zeros(1, size(A, 2)); 
-    tol = 1e-6; % Convergence tolerance.
+function F = solve_lyapunov(A, B1, ~, Q, R1, R2, num_iterations) % Solves Lyapunov iterations for Zero-Sum Game.
+    gamma = 1; % Zero-sum parameter.
+    F = zeros(1, size(A, 2)); % Initial feedback gain.
+    tol = 1e-8; % Tighten convergence tolerance.
+
     for k = 1:num_iterations
-        P = lyap((A - B1 * F)', Q1 + F' * R1 * F - gamma * (Q2 + F' * R2 * F));
-        F_new = inv(R1 + gamma * R2) * B1' * P; 
-        
-        % Check convergence:
+        % Solve Lyapunov equation for current feedback gain:
+
+        P = lyap((A - B1 * F)', Q + F' * R1 * F - gamma * (Q + F' * R2 * F));
+        F_new = inv(R1 + gamma * R2) * B1' * P;
+
+        % Convergence check:
+
         if norm(F_new - F) < tol
-            disp(['Lyapunov converged at iteration ', num2str(k)]);
-            break; % Stop if gain converges.
+            disp(['Lyapunov Iterations Converged at Iteration ', num2str(k)]);
+
+            break;
         end
-        
+
         F = F_new;
+
         fprintf('Iteration %d: F = [%f %f]\n', k, F);
     end
 end
