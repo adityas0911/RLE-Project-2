@@ -8,11 +8,13 @@
 % Due Date: Dec. 23, 2024 @ 11:59 PM EST
 
 %%
+
 clc;
 clear;
 close all;
 
 %% Define the Drone Dynamics
+
 % State-space model: x_dot = Ax + Bu,   z = Cx
 % A represents system dynamics, B control input, C performance output
 A = [0 1 0 0;
@@ -34,6 +36,7 @@ Q = Q1 - Q2;   % Combined state weighting matrix
 R = R1 - R2;   % Combined control weighting matrix
 
 %% Initialization for Policy Iterations
+
 n = size(A, 1);  % Number of states
 m1 = size(B1, 2); % Number of controls for Player 1
 m2 = size(B2, 2); % Number of controls for Player 2
@@ -47,6 +50,7 @@ epsilon = 1e-6;
 max_iters = 5;
 
 %% Riccati-Based Policy Iteration
+
 disp('Starting Riccati Iterations...');
 P = eye(n); % Initial guess for P
 performance_riccati = zeros(max_iters, 1);
@@ -78,6 +82,7 @@ for k = 1:max_iters
 end
 
 %% Lyapunov-Based Policy Iteration
+
 disp('Starting Lyapunov Iterations...');
 P = eye(n); % Initial guess for P
 performance_lyapunov = zeros(max_iters, 1);
@@ -109,6 +114,7 @@ for k = 1:max_iters
 end
 
 %% Simulating State Trajectories
+
 x0 = [1; 0; -1; 0];  % Initial state
 T = 0:0.1:10;        % Time vector
 
@@ -137,6 +143,7 @@ for k = 1:max_iters
 end
 
 %% Plotting Feedback Gains
+
 figure;
 for i = 1:max_iters
     K1_riccati = feedback_gains_riccati{i}{1};
@@ -168,6 +175,7 @@ for i = 1:max_iters
 end
 
 %% Plotting State Trajectories
+
 figure;
 for k = 1:max_iters
     subplot(2, 3, k);
@@ -185,6 +193,7 @@ for k = 1:max_iters
 end
 
 %% Performance Tables
+
 table_riccati = table((1:max_iters)', performance_riccati, 'VariableNames', {'Iteration', 'Performance_Riccati'});
 table_lyapunov = table((1:max_iters)', performance_lyapunov, 'VariableNames', {'Iteration', 'Performance_Lyapunov'});
 
