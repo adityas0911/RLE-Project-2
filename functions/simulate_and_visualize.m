@@ -1,4 +1,4 @@
-function simulate_and_visualize(A, B1, B2, F1, F2, F_lyapunov, x0, time_span) % Simulates and visualizes state trajectories with Riccati and Lyapunov feedback.
+function simulate_and_visualize(A, B1, B2, F1, F2, F_lyapunov, x0, time_span) % Simulates and visualizes state trajectories for Nash and Zero-Sum Games.
     % Closed-loop dynamics:
 
     A_cl_nash = A - B1 * F1 - B2 * F2; % Nash feedback.
@@ -14,7 +14,7 @@ function simulate_and_visualize(A, B1, B2, F1, F2, F_lyapunov, x0, time_span) % 
         x_zero_sum(:, i) = expm(A_cl_zero_sum * time_span(i)) * x0;
     end
 
-    % Create animated visualization (GIF) for Nash Game:
+    % 3D Visualization for Nash Game:
 
     figure;
     hold on;
@@ -28,7 +28,7 @@ function simulate_and_visualize(A, B1, B2, F1, F2, F_lyapunov, x0, time_span) % 
         pause(0.01);
     end
 
-    % Create animated visualization (GIF) for Zero-Sum Game:
+    % 3D Visualization for Zero-Sum Game:
 
     figure;
     hold on;
